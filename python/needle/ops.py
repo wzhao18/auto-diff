@@ -267,12 +267,13 @@ def negate(a):
 class Log(TensorOp):
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return numpy.log(a)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        input = node.inputs[0]
+        return out_grad * (input ** (-1))
         ### END YOUR SOLUTION
 
 
@@ -283,12 +284,13 @@ def log(a):
 class Exp(TensorOp):
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return numpy.exp(a)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        input = node.inputs[0]
+        return out_grad * exp(input)
         ### END YOUR SOLUTION
 
 
@@ -300,15 +302,35 @@ def exp(a):
 class ReLU(TensorOp):
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return a * (a > 0)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        input = node.inputs[0]
+        return out_grad * ((input > 0) * 1)
         ### END YOUR SOLUTION
 
 
 def relu(a):
     return ReLU()(a)
+
+
+class GreaterThanScalar(TensorOp):
+    def __init__(self, scalar):
+        self.scalar = scalar
+
+    def compute(self, a):
+        ### BEGIN YOUR SOLUTION
+        return a > 0
+        ### END YOUR SOLUTION
+
+    def gradient(self, out_grad, node):
+        ### BEGIN YOUR SOLUTION
+        return out_grad * 0
+        ### END YOUR SOLUTION
+
+
+def gt_scalar(a, scalar):
+    return GreaterThanScalar(scalar)(a)
 
