@@ -7,9 +7,9 @@ from .autograd import Op, Tensor, Value, TensorOp
 from .autograd import TensorTuple, TensorTupleOp
 import numpy
 
-# NOTE: we will numpy as the array_api
+# NOTE: we will numpy as the numpy
 # to backup our computations, this line will change in later homeworks
-import numpy as array_api
+import numpy as numpy
 
 
 class MakeTensorTuple(TensorTupleOp):
@@ -115,7 +115,7 @@ class MulScalar(TensorOp):
         self.scalar = scalar
 
     def compute(self, a: NDArray):
-        return a * self.scalar
+        return (a * self.scalar).astype(a.dtype)
 
     def gradient(self, out_grad: Tensor, node: Tensor):
         return (out_grad * self.scalar,)
@@ -172,7 +172,7 @@ class DivScalar(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        return a / self.scalar
+        return (a / self.scalar).astype(a.dtype)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -232,7 +232,7 @@ class BroadcastTo(TensorOp):
         self.shape = shape
 
     def compute(self, a):
-        return array_api.broadcast_to(a, self.shape)
+        return numpy.broadcast_to(a, self.shape)
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
@@ -378,14 +378,11 @@ class GreaterThanScalar(TensorOp):
         self.scalar = scalar
 
     def compute(self, a):
-        ### BEGIN YOUR SOLUTION
         return a > 0
-        ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
-        ### BEGIN YOUR SOLUTION
-        return out_grad * 0
-        ### END YOUR SOLUTION
+        # Not differentiable
+        raise NotImplementedError()
 
 
 def gt_scalar(a, scalar):
@@ -398,12 +395,33 @@ class LogSumExp(TensorOp):
 
     def compute(self, Z):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        z_max = Z.max(self.axes)
+        z_shape = list(Z.shape)
+        if self.axes:
+            for i in self.axes:
+                z_shape[i] = 1
+        else:
+            z_shape = [1 for _ in range(len(Z.shape))]
+        z = Z - numpy.broadcast_to(z_max.reshape(z_shape), Z.shape)
+        z = numpy.log(numpy.exp(z).sum(self.axes))
+        return z + z_max
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        input = node.inputs[0]
+        z_max = Tensor(input.realize_cached_data().max(self.axes), device=out_grad.device)
+        z_shape = list(input.shape)
+        if self.axes:
+            for i in self.axes:
+                z_shape[i] = 1
+        else:
+            z_shape = [1 for _ in range(len(input.shape))]
+        g = broadcast_to(reshape(out_grad, z_shape), input.shape)
+        expz = exp(input - broadcast_to(z_max.reshape(z_shape), input.shape))
+        expzsum = expz.sum(self.axes)
+        logz = broadcast_to(expzsum.reshape(z_shape), input.shape)
+        return g / logz * expz
         ### END YOUR SOLUTION
 
 

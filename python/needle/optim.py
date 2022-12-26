@@ -25,7 +25,17 @@ class SGD(Optimizer):
 
     def step(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        for param in self.params:
+            if not param.grad:
+                continue
+            if param not in self.u:
+                self.u[param] = 0.
+    
+            grad = param.grad.data + param.data * self.weight_decay
+            grad_w_momentum = self.momentum * self.u[param] + (1. - self.momentum) * grad
+            self.u[param] = grad_w_momentum
+
+            param.data = param.data - self.lr * grad_w_momentum
         ### END YOUR SOLUTION
 
 
@@ -52,5 +62,23 @@ class Adam(Optimizer):
 
     def step(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.t += 1
+        for param in self.params:
+            if not param.grad:
+                continue
+            if param not in self.m:
+                self.m[param] = 0.
+            if param not in self.v:
+                self.v[param] = 0.
+
+            grad = param.grad.data + param.data * self.weight_decay
+            m = self.beta1 * self.m[param] + (1 - self.beta1) * grad
+            v = self.beta2 * self.v[param] + (1 - self.beta2) * (grad ** 2)
+            m_bias_corr = m / (1 - self.beta1 ** self.t)
+            v_bias_corr = v / (1 - self.beta2 ** self.t)
+
+            self.m[param] = m
+            self.v[param] = v
+
+            param.data = param.data - self.lr * (m_bias_corr / (v_bias_corr ** 0.5 + self.eps))
         ### END YOUR SOLUTION
