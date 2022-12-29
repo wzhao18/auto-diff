@@ -4,7 +4,6 @@ from typing import List, Callable, Any
 from needle.autograd import Tensor
 from needle import ops
 import needle.init as init
-import numpy as np
 import math
 
 
