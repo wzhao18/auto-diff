@@ -2,14 +2,9 @@
 # Global operator table.
 from numbers import Number
 from typing import Optional, List
-from .autograd import NDArray
 from .autograd import Op, Tensor, Value, TensorOp
 from .autograd import TensorTuple, TensorTupleOp
-import numpy
-
-# NOTE: we will numpy as the numpy
-# to backup our computations, this line will change in later homeworks
-import numpy as numpy
+from .backend_selection import array_api, NDArray
 
 
 class MakeTensorTuple(TensorTupleOp):
@@ -195,7 +190,7 @@ class Transpose(TensorOp):
         if not axes:
             d = a.ndim
             axes = (d - 2, d - 1)
-        return numpy.swapaxes(a, *axes)
+        return array_api.swapaxes(a, *axes)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -232,7 +227,7 @@ class BroadcastTo(TensorOp):
         self.shape = shape
 
     def compute(self, a):
-        return numpy.broadcast_to(a, self.shape)
+        return array_api.broadcast_to(a, self.shape)
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
@@ -309,7 +304,7 @@ def matmul(a, b):
 class Negate(TensorOp):
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        return numpy.negative(a)
+        return array_api.negative(a)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -325,7 +320,7 @@ def negate(a):
 class Log(TensorOp):
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        return numpy.log(a)
+        return array_api.log(a)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -342,7 +337,7 @@ def log(a):
 class Exp(TensorOp):
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        return numpy.exp(a)
+        return array_api.exp(a)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -402,8 +397,8 @@ class LogSumExp(TensorOp):
                 z_shape[i] = 1
         else:
             z_shape = [1 for _ in range(len(Z.shape))]
-        z = Z - numpy.broadcast_to(z_max.reshape(z_shape), Z.shape)
-        z = numpy.log(numpy.exp(z).sum(self.axes))
+        z = Z - array_api.broadcast_to(z_max.reshape(z_shape), Z.shape)
+        z = array_api.log(array_api.exp(z).sum(self.axes))
         return z + z_max
         ### END YOUR SOLUTION
 
