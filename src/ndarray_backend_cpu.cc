@@ -41,6 +41,53 @@ void Fill(AlignedArray *out, scalar_t val) {
   }
 }
 
+void IterateNestedArray(std::vector<uint32_t> &shape, std::vector<uint32_t> &strides,
+                   size_t offset, std::function<void(uint32_t, uint32_t)> &func) {
+    /* This implementation contains lots of duplicate computation which may be optimized,
+       but it should be enough for proof-of-purpose.
+    */
+
+    size_t ndim = shape.size();
+    uint32_t shape_counter[ndim];
+    memset(shape_counter, 0, ndim * sizeof(uint32_t));
+
+    uint32_t cnt = 0;
+    int shape_idx = ndim - 1;
+    while (true)
+    {
+        /* Computer idx */
+        uint32_t idx = offset;
+        for (size_t dim = 0; dim < ndim; dim++) {
+            idx += strides[dim] * shape_counter[dim];
+        }
+
+        /* Perform compact operation */
+        func(cnt, idx);
+
+        /* Increment counter */
+        cnt++;
+
+        /* Increment the least significant bit */
+        shape_counter[ndim - 1]++;
+
+        /* Check if it causes any carry */
+        while (shape_counter[shape_idx] == shape[shape_idx])
+        {
+            /* Most significant bit is carried, we are done */
+            if (shape_idx == 0)
+            {
+                return;
+            }
+
+            shape_counter[shape_idx--] = 0;
+            shape_counter[shape_idx]++;
+        }
+
+        /* Set it back to the least significant bit */
+        shape_idx = ndim - 1;
+    }
+}
+
 void Compact(const AlignedArray &a, AlignedArray *out,
              std::vector<uint32_t> shape, std::vector<uint32_t> strides,
              size_t offset) {
@@ -62,6 +109,13 @@ void Compact(const AlignedArray &a, AlignedArray *out,
    */
   /// BEGIN YOUR SOLUTION
 
+    std::function<void(uint32_t, uint32_t)> func =
+        [&a, &out](uint32_t cnt, uint32_t idx) {
+            out->ptr[cnt] = a.ptr[idx];
+        };
+
+    IterateNestedArray(shape, strides, offset, func);
+    
   /// END YOUR SOLUTION
 }
 
@@ -80,6 +134,13 @@ void EwiseSetitem(const AlignedArray &a, AlignedArray *out,
    * compact)
    */
   /// BEGIN YOUR SOLUTION
+
+    std::function<void(uint32_t, uint32_t)> func =
+        [&a, &out](uint32_t cnt, uint32_t idx) {
+            out->ptr[idx] = a.ptr[cnt];
+        };
+
+    IterateNestedArray(shape, strides, offset, func);
 
   /// END YOUR SOLUTION
 }
@@ -100,6 +161,13 @@ void ScalarSetitem(const size_t size, scalar_t val, AlignedArray *out,
    */
 
   /// BEGIN YOUR SOLUTION
+
+    std::function<void(uint32_t, uint32_t)> func =
+        [&val, &out](uint32_t cnt, uint32_t idx) {
+            out->ptr[idx] = val;
+        };
+
+    IterateNestedArray(shape, strides, offset, func);
 
   /// END YOUR SOLUTION
 }
