@@ -213,6 +213,44 @@ void ScalarAdd(const AlignedArray &a, scalar_t val, AlignedArray *out) {
 
 /// BEGIN YOUR SOLUTION
 
+#define EwiseOpBinary(OP, IMPL) \
+    void OP(const AlignedArray &a, const AlignedArray &b, AlignedArray *out) { \
+        for (size_t i = 0; i < a.size; i++) { \
+            out->ptr[i] = IMPL; \
+        } \
+    }
+
+#define EwiseOpUnary(OP, IMPL) \
+    void OP(const AlignedArray &a, AlignedArray *out) { \
+        for (size_t i = 0; i < a.size; i++) { \
+            out->ptr[i] = IMPL; \
+        } \
+    }
+
+#define ScalarOpBinary(OP, IMPL) \
+    void OP(const AlignedArray &a, scalar_t val, AlignedArray *out) { \
+        for (size_t i = 0; i < a.size; i++) { \
+            out->ptr[i] = IMPL; \
+        } \
+    }
+
+EwiseOpUnary(EwiseLog, log(a.ptr[i]));
+EwiseOpUnary(EwiseExp, exp(a.ptr[i]));
+EwiseOpUnary(EwiseTanh, tanh(a.ptr[i]));
+
+EwiseOpBinary(EwiseMul, a.ptr[i] * b.ptr[i]);
+EwiseOpBinary(EwiseDiv, a.ptr[i] / b.ptr[i]);
+EwiseOpBinary(EwiseMaximum, std::max(a.ptr[i], b.ptr[i]));
+EwiseOpBinary(EwiseEq, a.ptr[i] == b.ptr[i]);
+EwiseOpBinary(EwiseGe, a.ptr[i] >= b.ptr[i]);
+
+ScalarOpBinary(ScalarMul, a.ptr[i] * val);
+ScalarOpBinary(ScalarDiv, a.ptr[i] / val);
+ScalarOpBinary(ScalarPower, pow(a.ptr[i], val));
+ScalarOpBinary(ScalarMaximum, std::max(a.ptr[i], val));
+ScalarOpBinary(ScalarEq, a.ptr[i] == val);
+ScalarOpBinary(ScalarGe, a.ptr[i] >= val);
+
 /// END YOUR SOLUTION
 
 void Matmul(const AlignedArray &a, const AlignedArray &b, AlignedArray *out,
@@ -362,22 +400,22 @@ PYBIND11_MODULE(ndarray_backend_cpu, m) {
   m.def("ewise_add", EwiseAdd);
   m.def("scalar_add", ScalarAdd);
 
-  // m.def("ewise_mul", EwiseMul);
-  // m.def("scalar_mul", ScalarMul);
-  // m.def("ewise_div", EwiseDiv);
-  // m.def("scalar_div", ScalarDiv);
-  // m.def("scalar_power", ScalarPower);
+  m.def("ewise_mul", EwiseMul);
+  m.def("scalar_mul", ScalarMul);
+  m.def("ewise_div", EwiseDiv);
+  m.def("scalar_div", ScalarDiv);
+  m.def("scalar_power", ScalarPower);
 
-  // m.def("ewise_maximum", EwiseMaximum);
-  // m.def("scalar_maximum", ScalarMaximum);
-  // m.def("ewise_eq", EwiseEq);
-  // m.def("scalar_eq", ScalarEq);
-  // m.def("ewise_ge", EwiseGe);
-  // m.def("scalar_ge", ScalarGe);
+  m.def("ewise_maximum", EwiseMaximum);
+  m.def("scalar_maximum", ScalarMaximum);
+  m.def("ewise_eq", EwiseEq);
+  m.def("scalar_eq", ScalarEq);
+  m.def("ewise_ge", EwiseGe);
+  m.def("scalar_ge", ScalarGe);
 
-  // m.def("ewise_log", EwiseLog);
-  // m.def("ewise_exp", EwiseExp);
-  // m.def("ewise_tanh", EwiseTanh);
+  m.def("ewise_log", EwiseLog);
+  m.def("ewise_exp", EwiseExp);
+  m.def("ewise_tanh", EwiseTanh);
 
   m.def("matmul", Matmul);
   m.def("matmul_tiled", MatmulTiled);
