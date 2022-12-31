@@ -348,6 +348,27 @@ EwiseOpUnary(EwiseTanh, out[gid] = tanh(a[gid]));
 // Elementwise and scalar operations
 ////////////////////////////////////////////////////////////////////////////////
 
+__global__ void MatmulKernel(scalar_t *a, scalar_t *b, scalar_t *out,
+                             uint32_t M, uint32_t N, uint32_t P) {
+                                
+    /* This implementation is naive */
+
+    size_t row_idx = blockIdx.x * blockDim.x + threadIdx.x;
+    size_t col_idx = blockIdx.y * blockDim.y + threadIdx.y;
+    
+    if (row_idx >= M || col_idx >= P) {
+        return;
+    }
+
+    scalar_t acc = 0;
+
+    for (int i = 0; i < N; i++) {
+        acc += a[row_idx * N + i] * b[i * P + col_idx];
+    }
+
+    out[row_idx * P + col_idx] = acc;
+}
+
 void Matmul(const CudaArray &a, const CudaArray &b, CudaArray *out, uint32_t M,
             uint32_t N, uint32_t P) {
   /**
@@ -376,6 +397,15 @@ void Matmul(const CudaArray &a, const CudaArray &b, CudaArray *out, uint32_t M,
 
   /// BEGIN YOUR SOLUTION
 
+    Fill(out, 0);
+    
+    size_t row_num_tiles = (M + TILE - 1) / TILE;
+    size_t col_num_tiles = (P + TILE - 1) / TILE;
+    
+    dim3 block(TILE, TILE);
+    dim3 grid(row_num_tiles, col_num_tiles);
+    MatmulKernel<<<grid, block>>>(a.ptr, b.ptr, out->ptr, M, N, P);
+
   /// END YOUR SOLUTION
 }
 
@@ -383,36 +413,29 @@ void Matmul(const CudaArray &a, const CudaArray &b, CudaArray *out, uint32_t M,
 // Max and sum reductions
 ////////////////////////////////////////////////////////////////////////////////
 
-void ReduceMax(const CudaArray &a, CudaArray *out, size_t reduce_size) {
-  /**
-   * Reduce by taking maximum over `reduce_size` contiguous blocks.  Even though
-   * it is inefficient, for simplicity you can perform each reduction in a
-   * single CUDA thread.
-   *
-   * Args:
-   *   a: compact array of size a.size = out.size * reduce_size to reduce over
-   *   out: compact array to write into
-   *   redice_size: size of the dimension to reduce over
-   */
-  /// BEGIN YOUR SOLUTION
+#define ReduceOp(OP, IMPL) \
+    __global__ void OP##Kernel(const scalar_t *a, scalar_t *out, size_t a_size, \
+                                    size_t out_size, size_t reduce_size) { \
+        size_t gid = blockIdx.x * blockDim.x + threadIdx.x; \
+        if (gid >= out_size) \
+            return; \
+        size_t start_idx = gid * reduce_size; \
+        size_t end_idx = min((gid + 1) * reduce_size, a_size); \
+        scalar_t val = a[start_idx]; \
+        for (size_t i = start_idx + 1; i < end_idx; i++) { \
+            IMPL; \
+        } \
+        out[gid] = val; \
+    } \
+    \
+    void OP(const CudaArray &a, CudaArray *out, size_t reduce_size) { \
+        CudaDims dim = CudaOneDim(out->size); \
+        OP##Kernel<<<dim.grid, dim.block>>>( \
+            a.ptr, out->ptr, a.size, out->size, reduce_size); \
+    }
 
-  /// END YOUR SOLUTION
-}
-
-void ReduceSum(const CudaArray &a, CudaArray *out, size_t reduce_size) {
-  /**
-   * Reduce by taking summation over `reduce_size` contiguous blocks.  Again,
-   * for simplicity you can perform each reduction in a single CUDA thread.
-   *
-   * Args:
-   *   a: compact array of size a.size = out.size * reduce_size to reduce over
-   *   out: compact array to write into
-   *   redice_size: size of the dimension to reduce over
-   */
-  /// BEGIN YOUR SOLUTION
-
-  /// END YOUR SOLUTION
-}
+ReduceOp(ReduceMax, val = max(val, a[i]));
+ReduceOp(ReduceSum, val += a[i]);
 
 } // namespace cuda
 } // namespace needle
