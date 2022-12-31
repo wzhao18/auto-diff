@@ -270,6 +270,16 @@ void Matmul(const AlignedArray &a, const AlignedArray &b, AlignedArray *out,
 
   /// BEGIN YOUR SOLUTION
 
+    Fill(out, 0);
+
+    for (size_t i = 0; i < m; i++) {
+        for (size_t k = 0; k < n; k++) {
+            for (size_t j = 0; j < p; j++) {
+                out->ptr[i * p + j] += a.ptr[i * n + k] * b.ptr[k * p + j];
+            }
+        }
+    }
+
   /// END YOUR SOLUTION
 }
 
@@ -301,6 +311,14 @@ inline void AlignedDot(const float *__restrict__ a, const float *__restrict__ b,
 
   /// BEGIN YOUR SOLUTION
 
+    for (size_t i = 0; i < TILE; i++) {
+        for (size_t k = 0; k < TILE; k++) {
+            for (size_t j = 0; j < TILE; j++) {
+                out[i * TILE + j] += a[i * TILE + k] * b[k * TILE + j];
+            }
+        }
+    }
+
   /// END YOUR SOLUTION
 }
 
@@ -328,6 +346,24 @@ void MatmulTiled(const AlignedArray &a, const AlignedArray &b,
    */
   /// BEGIN YOUR SOLUTION
 
+    Fill(out, 0);
+
+    size_t m_tiles = m / TILE;
+    size_t n_tiles = n / TILE;
+    size_t p_tiles = p / TILE;
+    size_t tile_sq = TILE * TILE;
+
+    for (size_t i = 0; i < m_tiles; i++) {
+        for (size_t k = 0; k < n_tiles; k++) {
+            for (size_t j = 0; j < p_tiles; j++) {
+                scalar_t *tile_a = &a.ptr[(i * n_tiles + k) * tile_sq];
+                scalar_t *tile_b = &b.ptr[(k * p_tiles + j) * tile_sq];
+                scalar_t *tile_out = &out->ptr[(i * p_tiles + j) * tile_sq];
+                AlignedDot(tile_a, tile_b, tile_out);
+            }
+        }
+    }
+
   /// END YOUR SOLUTION
 }
 
@@ -343,6 +379,19 @@ void ReduceMax(const AlignedArray &a, AlignedArray *out, size_t reduce_size) {
 
   /// BEGIN YOUR SOLUTION
 
+    for (size_t i = 0; i < out->size; i++) {
+
+        size_t start_idx = i * reduce_size;
+        size_t end_idx = std::min((i + 1) * reduce_size, a.size);
+        scalar_t sum_val = a.ptr[start_idx];
+
+        for (size_t j = start_idx + 1; j < end_idx; j++) {
+            sum_val = std::max(sum_val, a.ptr[j]);
+        }
+
+        out->ptr[i] = sum_val;
+    }
+
   /// END YOUR SOLUTION
 }
 
@@ -357,6 +406,19 @@ void ReduceSum(const AlignedArray &a, AlignedArray *out, size_t reduce_size) {
    */
 
   /// BEGIN YOUR SOLUTION
+
+    for (size_t i = 0; i < out->size; i++) {
+
+        size_t start_idx = i * reduce_size;
+        size_t end_idx = std::min((i + 1) * reduce_size, a.size);
+        scalar_t sum_val = 0;
+
+        for (size_t j = start_idx; j < end_idx; j++) {
+            sum_val += a.ptr[j];
+        }
+
+        out->ptr[i] = sum_val;
+    }
 
   /// END YOUR SOLUTION
 }
