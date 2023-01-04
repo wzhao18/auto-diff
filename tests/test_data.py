@@ -1,8 +1,5 @@
 import sys
-import os
-
 sys.path.append("./python")
-os.environ["NEEDLE_BACKEND"] = "np"
 
 import needle as ndl
 import numpy as np

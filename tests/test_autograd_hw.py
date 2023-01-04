@@ -1,9 +1,6 @@
-import os
 import sys
 sys.path.append('./python')
 sys.path.append('./apps')
-
-os.environ["NEEDLE_BACKEND"] = "np"
 
 from simple_ml import *
 import numdifftools as nd
