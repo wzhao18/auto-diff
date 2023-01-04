@@ -5,6 +5,7 @@ from typing import Optional, List
 from .autograd import Op, Tensor, Value, TensorOp
 from .autograd import TensorTuple, TensorTupleOp
 from .backend_selection import array_api, NDArray
+import numpy
 
 
 class MakeTensorTuple(TensorTupleOp):
@@ -110,7 +111,9 @@ class MulScalar(TensorOp):
         self.scalar = scalar
 
     def compute(self, a: NDArray):
-        return (a * self.scalar).astype(a.dtype)
+        if array_api is numpy:
+            return (a * self.scalar).astype(a.dtype)
+        return a * self.scalar
 
     def gradient(self, out_grad: Tensor, node: Tensor):
         return (out_grad * self.scalar,)
@@ -167,7 +170,9 @@ class DivScalar(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        return (a / self.scalar).astype(a.dtype)
+        if array_api is numpy:
+            return (a / self.scalar).astype(a.dtype)
+        return a / self.scalar
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -186,11 +191,21 @@ class Transpose(TensorOp):
 
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        axes = self.axes
-        if not axes:
-            d = a.ndim
-            axes = (d - 2, d - 1)
-        return array_api.swapaxes(a, *axes)
+        if array_api is numpy:
+            axes = self.axes
+            if not axes:
+                d = a.ndim
+                axes = (d - 2, d - 1)
+            return array_api.swapaxes(a, *axes)
+        else:
+            new_axes = list(range(len(a.shape)))
+            if self.axes:
+                f, s = self.axes
+            else:
+                f, s = [-1, -2]
+            
+            new_axes[f], new_axes[s] = new_axes[s], new_axes[f]
+            return a.permute(new_axes)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -227,6 +242,9 @@ class BroadcastTo(TensorOp):
         self.shape = shape
 
     def compute(self, a):
+        print("itishere!!")
+        print(a.shape)
+        print(self.shape)
         return array_api.broadcast_to(a, self.shape)
 
     def gradient(self, out_grad, node):
@@ -259,12 +277,16 @@ class Summation(TensorOp):
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
         input = node.inputs[0]
-        out_grad_shape = list(out_grad.shape)
-        if not self.axes:
+        out_grad_shape = list(input.shape)
+        if self.axes is None:
             out_grad_shape = [1 for _ in range(len(input.shape))]
         else:
-            for axis in self.axes:
-                out_grad_shape.insert(axis, 1)
+            if isinstance(self.axes, tuple):
+                for axis in self.axes:
+                    out_grad_shape[axis] = 1
+            else:
+                 out_grad_shape[self.axes] = 1
+
         return out_grad.reshape(out_grad_shape).broadcast_to(input.shape)
         ### END YOUR SOLUTION
 
@@ -304,7 +326,7 @@ def matmul(a, b):
 class Negate(TensorOp):
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        return array_api.negative(a)
+        return -a
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -320,7 +342,9 @@ def negate(a):
 class Log(TensorOp):
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        return array_api.log(a)
+        if array_api is numpy:
+            return array_api.log(a)
+        return a.log()
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -337,7 +361,9 @@ def log(a):
 class Exp(TensorOp):
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        return array_api.exp(a)
+        if array_api is numpy:
+            return array_api.exp(a)
+        return a.exp()
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
@@ -392,13 +418,28 @@ class LogSumExp(TensorOp):
         ### BEGIN YOUR SOLUTION
         z_max = Z.max(self.axes)
         z_shape = list(Z.shape)
-        if self.axes:
-            for i in self.axes:
-                z_shape[i] = 1
+        if self.axes is not None:
+            if isinstance(self.axes, tuple):
+                for i in self.axes:
+                    z_shape[i] = 1
+            else:
+                z_shape[self.axes] = 1
         else:
             z_shape = [1 for _ in range(len(Z.shape))]
+        
+        print("look!!!")
+        print(self.axes)
+        print(Z.shape)
+        print(z_max.shape)
+        print(z_shape)
+
+
+
         z = Z - array_api.broadcast_to(z_max.reshape(z_shape), Z.shape)
-        z = array_api.log(array_api.exp(z).sum(self.axes))
+        if array_api is numpy:
+            z = array_api.log(array_api.exp(z).sum(self.axes))
+        else:
+            z = z.exp().sum(self.axes).log()
         return z + z_max
         ### END YOUR SOLUTION
 
