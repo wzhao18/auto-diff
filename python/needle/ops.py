@@ -14,7 +14,7 @@ class MakeTensorTuple(TensorTupleOp):
 
     def gradient(self, out_grad, node):
         assert isinstance(out_grad, TensorTuple)
-        return tuple(*[out_grad[i] for i in range(len(out_grad))])
+        return tuple([out_grad[i] for i in range(len(out_grad))])
 
 
 def make_tuple(*args):
@@ -40,7 +40,7 @@ class TupleGetItem(TensorOp):
         in_grad = []
         for i, value in enumerate(node.inputs[0]):
             if i != index:
-                in_grad.append(zeros_like(value))
+                in_grad.append(init.zeros_like(value, device=value.device))
             else:
                 in_grad.append(out_grad)
         return MakeTensorTuple()(*in_grad)
@@ -242,9 +242,6 @@ class BroadcastTo(TensorOp):
         self.shape = shape
 
     def compute(self, a):
-        print("itishere!!")
-        print(a.shape)
-        print(self.shape)
         return array_api.broadcast_to(a, self.shape)
 
     def gradient(self, out_grad, node):
@@ -426,14 +423,6 @@ class LogSumExp(TensorOp):
                 z_shape[self.axes] = 1
         else:
             z_shape = [1 for _ in range(len(Z.shape))]
-        
-        print("look!!!")
-        print(self.axes)
-        print(Z.shape)
-        print(z_max.shape)
-        print(z_shape)
-
-
 
         z = Z - array_api.broadcast_to(z_max.reshape(z_shape), Z.shape)
         if array_api is numpy:
@@ -468,12 +457,13 @@ def logsumexp(a, axes=None):
 class Tanh(TensorOp):
     def compute(self, a):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return a.tanh()
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        input = node.inputs[0]
+        return out_grad * (1 - (tanh(input) ** 2))
         ### END YOUR SOLUTION
 
 
@@ -493,13 +483,31 @@ class Stack(TensorOp):
 
     def compute(self, args):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        num_arr = len(args)
+        arr_size = args[0].size
+        arr_shape = args[0].shape
+        res = array_api.empty((num_arr, arr_size), dtype=args[0].dtype, device=args[0].device)
+
+        # Stack to the 0th axis
+        for i in range(num_arr):
+            arr_flatten = args[i].reshape((1, arr_size))
+            res[i, :] = arr_flatten
+        
+        new_shape = [num_arr]  + list(arr_shape)
+        res = res.reshape(new_shape)
+        
+        # Permute to move 0th axis to the desired axis
+        if self.axis != 0:
+            new_axes = list(range(1, len(args[0].shape) + 1))
+            new_axes.insert(self.axis, 0)
+            return res.permute(tuple(new_axes))
+        return res
         ### END YOUR SOLUTION
 
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return split(out_grad, axis=self.axis)
         ### END YOUR SOLUTION
 
 
@@ -519,12 +527,30 @@ class Split(TensorTupleOp):
 
     def compute(self, A):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        res = []
+        A_shape = A.shape
+        num_arr = A.shape[self.axis]
+
+        # Move the split axis to the beginning
+        new_axes = list(range(len(A.shape)))
+        new_axes.pop(self.axis)
+        new_axes.insert(0, self.axis)
+        permuted = A.permute(tuple(new_axes)).reshape((num_arr, A.size // num_arr))
+
+        shape_without_axis = list(A_shape)
+        shape_without_axis.pop(self.axis)
+
+        # Reshape back to the correct shape
+        for i in range(num_arr):
+            arr = permuted[i, :].reshape(tuple(shape_without_axis))
+            res.append(arr)
+
+        return tuple(res)
         ### END YOUR SOLUTION
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return stack(out_grad, axis=self.axis)
         ### END YOUR SOLUTION
 
 

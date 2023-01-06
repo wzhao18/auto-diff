@@ -242,15 +242,12 @@ class NDArray:
         """
 
         ### BEGIN YOUR SOLUTION
-        assert self.is_compact()
-
-        if prod(self.shape) != prod(new_shape):
-            print("Shape!!")
-            print(self.shape)
-            print(new_shape)
-
-        assert prod(self.shape) == prod(new_shape) and self.is_compact()
-        return NDArray.make(new_shape, device=self.device, handle=self._handle, offset=self._offset)
+        assert prod(self.shape) == prod(new_shape)
+        if self.is_compact():
+            return NDArray.make(new_shape, device=self.device, handle=self._handle, offset=self._offset)
+        else:
+            new_arr = self.compact()
+            return NDArray.make(new_shape, device=new_arr.device, handle=new_arr._handle, offset=new_arr._offset)
         ### END YOUR SOLUTION
 
     def permute(self, new_axes):
@@ -609,7 +606,7 @@ def array(a, dtype="float32", device=None):
 
 def empty(shape, dtype="float32", device=None):
     device = device if device is not None else default_device()
-    return devie.empty(shape, dtype)
+    return device.empty(shape, dtype)
 
 
 def full(shape, fill_value, dtype="float32", device=None):
@@ -619,6 +616,7 @@ def full(shape, fill_value, dtype="float32", device=None):
 
 def broadcast_to(array, new_shape):
     return array.broadcast_to(new_shape)
+
 
 def reshape(array, new_shape):
     return array.reshape(new_shape)
@@ -639,8 +637,10 @@ def exp(a):
 def tanh(a):
     return a.tanh()
 
+
 def flip(a, axes):
     return a.flip(axes)
+
 
 def summation(a, axis=None, keepdims=False):
     return a.sum(axis=axis, keepdims=keepdims)

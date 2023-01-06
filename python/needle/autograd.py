@@ -150,6 +150,12 @@ class Value:
                 return value.detach()
             value.realize_cached_data()
         return value
+    
+    def numpy(self):
+        data = self.realize_cached_data()
+        if array_api is numpy:
+            return data
+        return data.numpy() if not isinstance(data, tuple) else [x.numpy() for x in data]
 
 
 ### Not needed in HW1
@@ -182,7 +188,7 @@ class TensorTuple(Value):
 
     def detach(self):
         """Create a new tensor that shares the data but detaches from the graph."""
-        return Tuple.make_const(self.realize_cached_data())
+        return TensorTuple.make_const(self.realize_cached_data())
 
 
 class Tensor(Value):
@@ -193,7 +199,7 @@ class Tensor(Value):
         array,
         *,
         device: Optional[Device] = None,
-        dtype=None,
+        dtype="float32",
         requires_grad=True,
         **kwargs
     ):
@@ -277,13 +283,16 @@ class Tensor(Value):
     @property
     def device(self):
         data = self.realize_cached_data()
-        # numpy array always sits on cpu
         if array_api is numpy:
-            return cpu()
+            return default_device()
         return data.device
 
     def backward(self, out_grad=None):
-        out_grad = out_grad if out_grad else init.ones(*self.shape, dtype=self.dtype, device=self.device)
+        out_grad = (
+            out_grad
+            if out_grad
+            else init.ones(*self.shape, dtype=self.dtype, device=self.device)
+        )
         compute_gradient_of_variables(self, out_grad)
 
     def __repr__(self):
@@ -291,12 +300,6 @@ class Tensor(Value):
 
     def __str__(self):
         return self.realize_cached_data().__str__()
-
-    def numpy(self):
-        data = self.realize_cached_data()
-        if array_api is numpy:
-            return data
-        return data.numpy()
 
     def __gt__(self, other):
         if isinstance(other, Tensor):
@@ -330,6 +333,12 @@ class Tensor(Value):
         else:
             return needle.ops.AddScalar(-other)(self)
 
+    def __rsub__(self, other):
+        if isinstance(other, Tensor):
+            return needle.ops.EWiseAdd()(needle.ops.Negate()(self), other)
+        else:
+            return needle.ops.AddScalar(other)(-self)
+
     def __truediv__(self, other):
         if isinstance(other, Tensor):
             return needle.ops.EWiseDiv()(self, other)
@@ -359,7 +368,6 @@ class Tensor(Value):
 
     __radd__ = __add__
     __rmul__ = __mul__
-    __rsub__ = __sub__
     __rmatmul__ = __matmul__
 
 
