@@ -1,7 +1,10 @@
 import numpy as np
 import gzip
+import pickle
 import os
 from .autograd import Tensor
+import numpy
+from .backend_selection import array_api, NDArray
 
 from typing import Iterator, Optional, List, Sized, Union, Iterable, Any
 
@@ -125,7 +128,10 @@ class DataLoader:
             raise StopIteration
         else:
             batch = self.dataset[self.ordering[self.index]]
-            batch_tensor = [Tensor.make_const(data) for data in batch]
+            if array_api == numpy:
+                batch_tensor = [Tensor.make_const(data) for data in batch]
+            else:
+                batch_tensor = [Tensor.make_const(NDArray(data)) for data in batch]
             self.index += 1
             return tuple(batch_tensor)
         ### END YOUR SOLUTION
@@ -193,7 +199,16 @@ class CIFAR10Dataset(Dataset):
         y - numpy array of labels
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        super().__init__(transforms)
+        X, y = [], []
+        for file in sorted(os.listdir(base_folder)):
+            if (train and 'data' in file) or (not train and 'test' in file):
+                with open(os.path.join(base_folder, file), 'rb') as fo:
+                    data = pickle.load(fo, encoding='bytes')
+                    X.append(data[b'data'] / 255)
+                    y.append(data[b'labels'])
+        self.X = np.concatenate(X, axis=0)
+        self.y = np.concatenate(y, axis=0)
         ### END YOUR SOLUTION
 
     def __getitem__(self, index) -> object:
@@ -202,7 +217,10 @@ class CIFAR10Dataset(Dataset):
         Image should be of shape (3, 32, 32)
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        imgs = self.X[index].reshape((-1, 3, 32, 32))
+        imgs = np.stack([self.apply_transforms(i) for i in imgs])
+        imgs = imgs[0] if isinstance(index, int) else imgs
+        return imgs, self.y[index]
         ### END YOUR SOLUTION
 
     def __len__(self) -> int:
@@ -210,7 +228,7 @@ class CIFAR10Dataset(Dataset):
         Returns the total number of examples in the dataset
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return len(self.y)
         ### END YOUR SOLUTION
 
 
