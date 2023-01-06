@@ -199,7 +199,7 @@ class Tensor(Value):
         array,
         *,
         device: Optional[Device] = None,
-        dtype="float32",
+        dtype=None,
         requires_grad=True,
         **kwargs
     ):
